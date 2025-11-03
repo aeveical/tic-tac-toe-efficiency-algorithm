@@ -22,7 +22,7 @@ class UltimateTicTacToeBoard:
     PLAYER_X = "X"
     PLAYER_O = "O"
 
-    def __init__(self, human_marker=PLAYER_X):
+    def __init__(self, human_marker=PLAYER_X, difficulty="hard"):
         # default is x for human player and y for bot
 
         self.human_player = human_marker
@@ -31,6 +31,10 @@ class UltimateTicTacToeBoard:
         )
 
         self.current_player = self.PLAYER_X
+        self.difficulty = difficulty.lower()
+
+        # Set weights based on difficulty level
+        self._set_difficulty_weights()
 
         self.grand_board = [[self.EMPTY_CELL for _ in range(3)] for _ in range(3)]
 
@@ -44,6 +48,51 @@ class UltimateTicTacToeBoard:
             self.boards.append(board_row)
 
         self.next_board_coords = None
+
+    def _set_difficulty_weights(self):
+        """
+        Set evaluation weights based on difficulty level.
+
+        Easy: Suboptimal weights that make the AI play poorly
+        Medium: Moderately good weights
+        Hard: Optimal weights for best play
+        """
+        if self.difficulty == "easy":
+            self.weights = {
+                "grand_win": 50000,
+                "grand_line_two": 20,
+                "grand_line_one": 2,
+                "small_board_win": 10,
+                "small_line_two": 1,
+                "small_line_one": 0.2,
+                "center_bonus": 2,
+                "randomness": 0.3,
+            }
+            self.search_depth = 2
+        elif self.difficulty == "medium":
+            self.weights = {
+                "grand_win": 75000,
+                "grand_line_two": 60,
+                "grand_line_one": 60,
+                "small_board_win": 30,
+                "small_line_two": 3,
+                "small_line_one": 3,
+                "center_bonus": 6,
+                "randomness": 0.1,
+            }
+            self.search_depth = 3
+        else:
+            self.weights = {
+                "grand_win": 100000,
+                "grand_line_two": 100,
+                "grand_line_one": 100,
+                "small_board_win": 50,
+                "small_line_two": 5,
+                "small_line_one": 5,
+                "center_bonus": 10,
+                "randomness": 0,
+            }
+            self.search_depth = 4
 
     def _check_win_3x3(self, board):
         """
@@ -79,7 +128,9 @@ class UltimateTicTacToeBoard:
         """
         Docstring
         """
-        new_board = UltimateTicTacToeBoard(human_marker=self.human_player)
+        new_board = UltimateTicTacToeBoard(
+            human_marker=self.human_player, difficulty=self.difficulty
+        )
         new_board.grand_board = copy.deepcopy(self.grand_board)
         new_board.boards = copy.deepcopy(self.boards)
         new_board.next_board_coords = self.next_board_coords
@@ -210,44 +261,63 @@ class UltimateTicTacToeBoard:
 
     def evaluate_board(self, board):
         """
-        Docstring
+        Evaluate board position using difficulty-based weights.
+        Easy mode uses suboptimal weights, Hard mode uses optimal weights.
         """
+        import random
 
         grand_winner = board.check_grand_win()
         if grand_winner == self.computer_player:
-            return 100000
+            return self.weights["grand_win"]
         if grand_winner == self.human_player:
-            return -100000
+            return -self.weights["grand_win"]
         if grand_winner == self.TIE_CELL:
             return 0
 
         score = 0
 
-        score += self._count_lines(board.grand_board, self.computer_player) * 100
-        score -= self._count_lines(board.grand_board, self.human_player) * 100
+        # Grand board evaluation with difficulty-based weights
+        score += (
+            self._count_lines(board.grand_board, self.computer_player)
+            * self.weights["grand_line_two"]
+        )
+        score -= (
+            self._count_lines(board.grand_board, self.human_player)
+            * self.weights["grand_line_two"]
+        )
 
+        # Small board evaluation
         for br in range(3):
             for bc in range(3):
                 status = board.grand_board[br][bc]
 
                 if status == self.computer_player:
-                    score += 50
+                    score += self.weights["small_board_win"]
                 elif status == self.human_player:
-                    score -= 50
+                    score -= self.weights["small_board_win"]
                 elif status == self.EMPTY_CELL:
                     sub_score = (
                         self._count_lines(board.boards[br][bc], self.computer_player)
-                        * 5
+                        * self.weights["small_line_two"]
                     )
                     sub_score -= (
-                        self._count_lines(board.boards[br][bc], self.human_player) * 5
+                        self._count_lines(board.boards[br][bc], self.human_player)
+                        * self.weights["small_line_two"]
                     )
                     score += sub_score
 
+        # Center control bonus
         if board.grand_board[1][1] == self.computer_player:
-            score += 10
+            score += self.weights["center_bonus"]
         elif board.grand_board[1][1] == self.human_player:
-            score -= 10
+            score -= self.weights["center_bonus"]
+
+        # Add randomness for easier difficulties
+        if self.weights["randomness"] > 0:
+            randomness_factor = random.uniform(
+                -self.weights["randomness"], self.weights["randomness"]
+            )
+            score += score * randomness_factor
 
         return score
 
@@ -297,10 +367,13 @@ class UltimateTicTacToeBoard:
                     break
             return min_eval
 
-    def get_best_move(self, depth=4):
+    def get_best_move(self, depth=None):
         """
-        Docstring
+        Get best move using difficulty-based search depth.
         """
+        if depth is None:
+            depth = self.search_depth
+
         best_score = float("-inf")
         best_move = None
 
@@ -344,6 +417,7 @@ class UltimateTicTacToeGUI:
 
         self.ai_depth = 4
         self.game = None
+        self.selected_difficulty = "hard"
 
         self.buttons = {}
         self.sub_board_frames = {}
@@ -364,62 +438,141 @@ class UltimateTicTacToeGUI:
 
     def _start_screen(self):
         """
-        Docstring
+        Show start screen with player marker and difficulty selection.
         """
         self._clear_master_widgets()
 
         self.choice_frame = tk.Frame(self.master, padx=50, pady=50, bg="#EEEEEE")
         self.choice_frame.pack(expand=True)
 
+        # Title
+        tk.Label(
+            self.choice_frame,
+            text="Ultimate Tic-Tac-Toe",
+            font=("Arial", 24, "bold"),
+            bg="#EEEEEE",
+            fg="#333333",
+        ).pack(pady=10)
+
+        # Player marker selection
         tk.Label(
             self.choice_frame,
             text="Choose your marker:",
-            font=("Arial", 20, "bold"),
+            font=("Arial", 18, "bold"),
             bg="#EEEEEE",
             fg="#333333",
-        ).pack(pady=20)
+        ).pack(pady=(20, 10))
 
-        button_font = ("Arial", 18, "bold")
+        marker_frame = tk.Frame(self.choice_frame, bg="#EEEEEE")
+        marker_frame.pack(pady=10)
+
+        button_font = ("Arial", 16, "bold")
 
         btn_x = tk.Button(
-            self.choice_frame,
+            marker_frame,
             text="Play as X",
-            command=lambda: self._setup_game(UltimateTicTacToeBoard.PLAYER_X),
+            command=lambda: self._select_marker(UltimateTicTacToeBoard.PLAYER_X),
             font=button_font,
             bg="#FF5733",
-            fg="white",
-            width=15,
+            fg="black",
+            width=12,
             height=2,
             relief=tk.RAISED,
             bd=4,
         )
-        btn_x.pack(pady=10)
+        btn_x.pack(side=tk.LEFT, padx=5)
 
         btn_o = tk.Button(
-            self.choice_frame,
+            marker_frame,
             text="Play as O",
-            command=lambda: self._setup_game(UltimateTicTacToeBoard.PLAYER_O),
+            command=lambda: self._select_marker(UltimateTicTacToeBoard.PLAYER_O),
             font=button_font,
             bg="#33A07A",
-            fg="white",
-            width=15,
+            fg="black",
+            width=12,
             height=2,
             relief=tk.RAISED,
             bd=4,
         )
-        btn_o.pack(pady=10)
+        btn_o.pack(side=tk.LEFT, padx=5)
 
-    def _setup_game(self, human_marker):
+        # Difficulty selection
+        tk.Label(
+            self.choice_frame,
+            text="Choose difficulty:",
+            font=("Arial", 18, "bold"),
+            bg="#EEEEEE",
+            fg="#333333",
+        ).pack(pady=(30, 10))
+
+        difficulty_frame = tk.Frame(self.choice_frame, bg="#EEEEEE")
+        difficulty_frame.pack(pady=10)
+
+        difficulties = [
+            ("Easy", "easy", "#4CAF50"),
+            ("Medium", "medium", "#FF9800"),
+            ("Hard", "hard", "#F44336"),
+        ]
+
+        for text, value, color in difficulties:
+            btn = tk.Button(
+                difficulty_frame,
+                text=text,
+                command=lambda v=value: self._select_difficulty(v),
+                font=("Arial", 14, "bold"),
+                bg=color,
+                fg="black",
+                width=10,
+                height=2,
+                relief=tk.RAISED,
+                bd=3,
+            )
+            btn.pack(side=tk.LEFT, padx=5)
+
+        # Current selections display
+        self.selection_label = tk.Label(
+            self.choice_frame,
+            text=f"Selected: Marker = Not chosen, Difficulty = {self.selected_difficulty.title()}",
+            font=("Arial", 12),
+            bg="#EEEEEE",
+            fg="#666666",
+        )
+        self.selection_label.pack(pady=(20, 10))
+
+    def _select_marker(self, marker):
         """
-        Docstring
+        Handle marker selection and start game.
+        """
+        self.selected_marker = marker
+        self._setup_game(marker, self.selected_difficulty)
+
+    def _select_difficulty(self, difficulty):
+        """
+        Handle difficulty selection.
+        """
+        self.selected_difficulty = difficulty
+        self.selection_label.config(
+            text=f"Selected: Marker = Not chosen, Difficulty = {difficulty.title()}"
+        )
+
+    def _setup_game(self, human_marker, difficulty="hard"):
+        """
+        Set up game with selected marker and difficulty.
         """
         self._clear_master_widgets()
 
-        self.game = UltimateTicTacToeBoard(human_marker=human_marker)
+        self.game = UltimateTicTacToeBoard(
+            human_marker=human_marker, difficulty=difficulty
+        )
         self.buttons = {}
         self.sub_board_frames = {}
 
-        self.status_label = tk.Label(self.master, text="", font=("Arial", 14, "bold"))
+        # Status label with difficulty indicator
+        self.status_label = tk.Label(
+            self.master,
+            text=f"Difficulty: {difficulty.title()}",
+            font=("Arial", 14, "bold"),
+        )
         self.status_label.pack(pady=10)
 
         self.main_frame = tk.Frame(self.master, bd=5, relief=tk.RIDGE, bg="#333333")
@@ -433,7 +586,7 @@ class UltimateTicTacToeGUI:
             command=self._start_screen,
             font=("Arial", 12),
             bg="#FF5733",
-            fg="white",
+            fg="black",
             relief=tk.RAISED,
             bd=3,
         )
@@ -513,7 +666,7 @@ class UltimateTicTacToeGUI:
 
                 elif is_required:
 
-                    frame.config(bg="#ADD8E6", relief=tk.RAISED)  # Light Blue Highlight
+                    frame.config(bg="#ADD8E6", relief=tk.RAISED)
                 else:
 
                     frame.config(bg="#FFFFFF", relief=tk.RAISED)
@@ -556,6 +709,10 @@ class UltimateTicTacToeGUI:
                             else:
                                 btn.config(bg="white")
 
+        # Initialize variables for winner display
+        winner_text = ""
+        color = "black"
+
         if grand_winner == self.game.PLAYER_X:
             winner_text = (
                 f"X Wins! ({'You' if self.game.human_player == 'X' else 'AI'})"
@@ -571,12 +728,15 @@ class UltimateTicTacToeGUI:
             color = "blue"
 
         if grand_winner is not None:
-            self.status_label.config(text=f"GAME OVER: {winner_text}", fg=color)
+            self.status_label.config(
+                text=f"GAME OVER: {winner_text} (Difficulty: {self.game.difficulty.title()})",
+                fg=color,
+            )
         else:
             current_player = self.game.current_player
             player_role = "Your" if current_player == self.game.human_player else "AI"
             self.status_label.config(
-                text=f"{player_role} Turn: {current_player}",
+                text=f"{player_role} Turn: {current_player} (Difficulty: {self.game.difficulty.title()})",
                 fg="red" if current_player == "X" else "green",
             )
 
@@ -623,14 +783,14 @@ class UltimateTicTacToeGUI:
 
     def make_ai_move(self):
         """
-        Docstring
+        Make AI move using difficulty-based strategy.
         """
         if self.game.current_player != self.game.computer_player:
             return
 
         self.master.update()
 
-        ai_move = self.game.get_best_move(depth=self.ai_depth)
+        ai_move = self.game.get_best_move()
 
         if ai_move:
             self.game.make_move(*ai_move)
