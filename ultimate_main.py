@@ -14,7 +14,27 @@ from functools import partial
 
 class UltimateTicTacToeBoard:
     """
-    Docstring
+    Ultimate Tic-Tac-Toe game board with AI opponent.
+
+    This class implements the complete game logic for Ultimate Tic-Tac-Toe,
+    a variant where players must win small 3x3 boards to control positions
+    in a larger 3x3 grid. The AI uses minimax with alpha-beta pruning and
+    supports multiple difficulty levels.
+
+    Attributes:
+        EMPTY_CELL (str): Symbol for empty cells (" ")
+        TIE_CELL (str): Symbol for tied small boards ("T")
+        PLAYER_X (str): Symbol for player X
+        PLAYER_O (str): Symbol for player O
+        human_player (str): Symbol assigned to human player
+        computer_player (str): Symbol assigned to AI player
+        current_player (str): Currently active player
+        difficulty (str): AI difficulty level ("easy", "medium", "hard")
+        weights (dict): Evaluation weights based on difficulty
+        search_depth (int): Search depth for minimax algorithm
+        grand_board (list): 3x3 grid tracking small board winners
+        boards (list): 3x3x3x3 grid of all small board cells
+        next_board_coords (tuple): Coordinates of required next board
     """
 
     EMPTY_CELL = " "
@@ -96,8 +116,16 @@ class UltimateTicTacToeBoard:
 
     def _check_win_3x3(self, board):
         """
-        Docstring
+        Check if there's a winner in a 3x3 board.
 
+        Examines rows, columns, and diagonals to determine if any player
+        has achieved three in a row in the given 3x3 board.
+
+        Args:
+            board (list): 3x3 list representing a small board or grand board
+
+        Returns:
+            str or None: Player symbol ('X' or 'O') if there's a winner, None otherwise
         """
         for player in [self.PLAYER_X, self.PLAYER_O]:
 
@@ -117,7 +145,16 @@ class UltimateTicTacToeBoard:
 
     def _is_board_full_3x3(self, board):
         """
-        Docstring
+        Check if a 3x3 board is completely filled.
+
+        Determines whether all cells in a 3x3 board contain player symbols
+        (no empty cells remaining).
+
+        Args:
+            board (list): 3x3 list representing a board to check
+
+        Returns:
+            bool: True if all cells are filled, False if any empty cells remain
         """
         for row in board:
             if self.EMPTY_CELL in row:
@@ -126,7 +163,14 @@ class UltimateTicTacToeBoard:
 
     def deep_copy(self):
         """
-        Docstring
+        Create a deep copy of the game board.
+
+        Creates a complete copy of the current game state including all boards,
+        player assignments, difficulty settings, and game progress. Used by
+        the minimax algorithm to simulate moves without affecting the actual game.
+
+        Returns:
+            UltimateTicTacToeBoard: A new board instance with identical state
         """
         new_board = UltimateTicTacToeBoard(
             human_marker=self.human_player, difficulty=self.difficulty
@@ -139,7 +183,17 @@ class UltimateTicTacToeBoard:
 
     def _check_small_board_win(self, br, bc):
         """
-        Docstring
+        Check if a small board has been won or tied.
+
+        Examines a specific small board to determine if it has been won
+        by either player or if it's completely filled (tie).
+
+        Args:
+            br (int): Board row coordinate (0-2)
+            bc (int): Board column coordinate (0-2)
+
+        Returns:
+            str or None: Player symbol if won, 'T' if tied, None if still active
         """
         small_board = self.boards[br][bc]
         winner = self._check_win_3x3(small_board)
@@ -153,8 +207,21 @@ class UltimateTicTacToeBoard:
 
     def make_move(self, board_r, board_c, cell_r, cell_c):
         """
-        Docstring
+        Execute a move on the game board.
 
+        Places the current player's symbol in the specified cell and updates
+        the game state. Checks for small board completion, updates the grand
+        board if necessary, determines the next required board, and switches
+        to the next player.
+
+        Args:
+            board_r (int): Small board row coordinate (0-2)
+            board_c (int): Small board column coordinate (0-2)
+            cell_r (int): Cell row within the small board (0-2)
+            cell_c (int): Cell column within the small board (0-2)
+
+        Returns:
+            bool: True if the small board status changed (won/tied), False otherwise
         """
         player = self.current_player
 
@@ -176,8 +243,16 @@ class UltimateTicTacToeBoard:
 
     def get_legal_moves(self):
         """
-        Docstring
+        Get all legal moves in the current game state.
 
+        Determines which cells can be legally played based on Ultimate Tic-Tac-Toe
+        rules. If a specific small board is required (based on last move), only
+        moves in that board are legal. If the required board is completed or full,
+        any move in any active small board is legal.
+
+        Returns:
+            list: List of tuples (board_r, board_c, cell_r, cell_c) representing
+                  all legal moves in the current position
         """
         moves = []
         required_br, required_bc = self.next_board_coords or (None, None)
@@ -213,8 +288,15 @@ class UltimateTicTacToeBoard:
 
     def check_grand_win(self):
         """
-        Docstring
+        Check if the game has ended (win or tie).
 
+        Examines the grand board (3x3 grid of small board winners) to determine
+        if any player has won the overall game by getting three small boards
+        in a row, or if the game is a tie.
+
+        Returns:
+            str or None: Player symbol ('X' or 'O') if game won, 'T' if tie,
+                        None if game is still ongoing
         """
         winner = self._check_win_3x3(self.grand_board)
         if winner:
@@ -232,7 +314,20 @@ class UltimateTicTacToeBoard:
 
     def _count_lines(self, board, player):
         """
-        Docstring
+        Count strategic line formations for a player on a 3x3 board.
+
+        Evaluates rows, columns, and diagonals to count how many lines
+        have potential for the specified player. Awards points for lines
+        with 2 of the player's symbols (strong threat) and 1 symbol (potential).
+
+        Args:
+            board (list): 3x3 board to evaluate
+            player (str): Player symbol to count lines for ('X' or 'O')
+
+        Returns:
+            int: Strategic score based on line formations
+                 10 points per 2-in-a-row with 1 empty
+                 1 point per 1-in-a-row with 2 empty
         """
         score = 0
 
@@ -262,7 +357,19 @@ class UltimateTicTacToeBoard:
     def evaluate_board(self, board):
         """
         Evaluate board position using difficulty-based weights.
-        Easy mode uses suboptimal weights, Hard mode uses optimal weights.
+
+        Calculates a numerical score for the current board position from the
+        computer's perspective. Uses different evaluation weights based on
+        difficulty level to create varying AI strength.
+
+        Args:
+            board (UltimateTicTacToeBoard): Board position to evaluate
+
+        Returns:
+            int: Position evaluation score
+                 Positive values favor the computer
+                 Negative values favor the human
+                 Zero indicates neutral/draw position
         """
         import random
 
@@ -323,8 +430,24 @@ class UltimateTicTacToeBoard:
 
     def minimax(self, board, depth, is_maximizing, alpha, beta):
         """
-        Docstring
+        Minimax algorithm with alpha-beta pruning for optimal move calculation.
 
+        Recursively evaluates all possible game positions to find the optimal
+        move for the current player. Uses alpha-beta pruning to eliminate
+        branches that cannot improve the final result, significantly improving
+        efficiency.
+
+        Args:
+            board (UltimateTicTacToeBoard): Current board position
+            depth (int): Remaining search depth (decreases with recursion)
+            is_maximizing (bool): True if maximizing player (computer), False if minimizing (human)
+            alpha (float): Best value the maximizing player can guarantee
+            beta (float): Best value the minimizing player can guarantee
+
+        Returns:
+            int: The evaluation score for the current board position
+                 Positive values favor the computer
+                 Negative values favor the human
         """
         grand_winner = board.check_grand_win()
         if grand_winner is not None:
@@ -369,7 +492,18 @@ class UltimateTicTacToeBoard:
 
     def get_best_move(self, depth=None):
         """
-        Get best move using difficulty-based search depth.
+        Find the optimal move for the computer using minimax algorithm.
+
+        Evaluates all legal moves using the minimax algorithm with alpha-beta
+        pruning to find the move that yields the best position for the computer.
+        Uses difficulty-based search depth for varying AI strength.
+
+        Args:
+            depth (int, optional): Search depth override. If None, uses difficulty-based depth
+
+        Returns:
+            tuple or None: (board_r, board_c, cell_r, cell_c) coordinates of best move,
+                          or None if no legal moves available
         """
         if depth is None:
             depth = self.search_depth
@@ -408,7 +542,24 @@ class UltimateTicTacToeBoard:
 
 class UltimateTicTacToeGUI:
     """
-    Docstring
+    Graphical user interface for Ultimate Tic-Tac-Toe game.
+
+    Provides a complete tkinter-based interface for playing Ultimate Tic-Tac-Toe
+    against an AI opponent. Includes start screen with marker and difficulty
+    selection, dynamic game board visualization, and game state management.
+
+    Attributes:
+        master (tk.Tk): Root tkinter window
+        ai_depth (int): Default AI search depth (overridden by difficulty)
+        game (UltimateTicTacToeBoard): Current game instance
+        selected_difficulty (str): Chosen difficulty level
+        buttons (dict): Dictionary of game board buttons
+        sub_board_frames (dict): Dictionary of small board frames
+        status_label (tk.Label): Game status display
+        main_frame (tk.Frame): Main game board container
+        choice_frame (tk.Frame): Start screen container
+        reset_button (tk.Button): New game button
+        selection_label (tk.Label): Selection status display
     """
 
     def __init__(self, master):
@@ -430,15 +581,22 @@ class UltimateTicTacToeGUI:
 
     def _clear_master_widgets(self):
         """
-        Docstring
+        Remove all widgets from the master window.
 
+        Clears the tkinter window by destroying all child widgets.
+        Used when transitioning between different screens (start screen,
+        game screen, etc.).
         """
         for widget in self.master.winfo_children():
             widget.destroy()
 
     def _start_screen(self):
         """
-        Show start screen with player marker and difficulty selection.
+        Display the game start screen with marker and difficulty selection.
+
+        Creates the initial interface where players choose their marker (X or O)
+        and select difficulty level (Easy, Medium, Hard). Includes visual
+        feedback for selections and intuitive color-coded buttons.
         """
         self._clear_master_widgets()
 
@@ -541,14 +699,27 @@ class UltimateTicTacToeGUI:
 
     def _select_marker(self, marker):
         """
-        Handle marker selection and start game.
+        Handle player marker selection and start the game.
+
+        Called when player chooses X or O marker. Immediately starts
+        a new game with the selected marker and current difficulty setting.
+
+        Args:
+            marker (str): Chosen player marker ('X' or 'O')
         """
         self.selected_marker = marker
         self._setup_game(marker, self.selected_difficulty)
 
     def _select_difficulty(self, difficulty):
         """
-        Handle difficulty selection.
+        Handle difficulty level selection.
+
+        Updates the selected difficulty and refreshes the selection display
+        to show the current choice. Player must still choose a marker to
+        start the game.
+
+        Args:
+            difficulty (str): Chosen difficulty level ('easy', 'medium', 'hard')
         """
         self.selected_difficulty = difficulty
         self.selection_label.config(
@@ -557,7 +728,15 @@ class UltimateTicTacToeGUI:
 
     def _setup_game(self, human_marker, difficulty="hard"):
         """
-        Set up game with selected marker and difficulty.
+        Initialize and set up a new game with specified parameters.
+
+        Creates a new game instance, sets up the UI elements, and prepares
+        the game board for play. If the human player is O, triggers the
+        AI to make the first move.
+
+        Args:
+            human_marker (str): Player's chosen marker ('X' or 'O')
+            difficulty (str): AI difficulty level ('easy', 'medium', 'hard')
         """
         self._clear_master_widgets()
 
@@ -599,8 +778,11 @@ class UltimateTicTacToeGUI:
 
     def _create_board_ui(self):
         """
-        Docstring
+        Create the visual game board interface.
 
+        Constructs the 3x3 grid of small board frames, each containing
+        a 3x3 grid of clickable buttons. Sets up the visual layout and
+        configures button callbacks for user interaction.
         """
         for br in range(3):
             for bc in range(3):
@@ -643,7 +825,14 @@ class UltimateTicTacToeGUI:
 
     def _update_ui_state(self, game_end=False):
         """
-        Docstring
+        Update the visual state of the game interface.
+
+        Refreshes all UI elements to reflect the current game state including
+        button states, colors, board highlights, and status messages. Handles
+        visual feedback for legal moves, completed boards, and game end conditions.
+
+        Args:
+            game_end (bool): Whether the game has ended (disables all buttons)
         """
 
         required_br, required_bc = self.game.next_board_coords or (None, None)
@@ -742,7 +931,16 @@ class UltimateTicTacToeGUI:
 
     def _show_small_board_winner(self, br, bc, winner_char):
         """
-        Docstring
+        Display the winner of a completed small board.
+
+        Replaces the small board's buttons with a large winner symbol
+        when the board is won or tied. Uses color coding to distinguish
+        between different outcomes.
+
+        Args:
+            br (int): Board row coordinate (0-2)
+            bc (int): Board column coordinate (0-2)
+            winner_char (str): Winner symbol ('X', 'O', or 'T' for tie)
         """
         frame = self.sub_board_frames[(br, bc)]
 
@@ -768,7 +966,17 @@ class UltimateTicTacToeGUI:
 
     def on_button_click(self, br, bc, cr, cc):
         """
-        Docstring
+        Handle human player button clicks on the game board.
+
+        Processes user input when clicking on a game board button.
+        Validates the move, updates the game state, refreshes the UI,
+        and triggers the AI opponent's response if the game continues.
+
+        Args:
+            br (int): Small board row coordinate (0-2)
+            bc (int): Small board column coordinate (0-2)
+            cr (int): Cell row within small board (0-2)
+            cc (int): Cell column within small board (0-2)
         """
 
         self.game.make_move(br, bc, cr, cc)
@@ -783,7 +991,11 @@ class UltimateTicTacToeGUI:
 
     def make_ai_move(self):
         """
-        Make AI move using difficulty-based strategy.
+        Execute the AI opponent's move using difficulty-based strategy.
+
+        Calculates and executes the optimal move for the AI player using
+        the minimax algorithm with difficulty-appropriate search depth
+        and evaluation weights. Updates the UI and checks for game end.
         """
         if self.game.current_player != self.game.computer_player:
             return
